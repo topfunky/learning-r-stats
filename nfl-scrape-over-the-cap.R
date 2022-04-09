@@ -56,7 +56,7 @@ otc_parse_data_for_position <- function(position) {
   nodes <- html_nodes(file_contents, ".position-table")[[1]]
   data <- html_table(nodes, fill = TRUE)
 
-  # Rename column since source splits it across two lines
+  # Rename column for easier reference
   colnames(data)[5] <- "Avg.Year"
 
   data <- data %>% mutate(Position = position,
