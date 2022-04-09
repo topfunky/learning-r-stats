@@ -38,6 +38,7 @@ salary_percentiles <- salaries %>%
   group_by(Position) %>%
   # Calculate percentiles
   summarize(
+    n = n(),
     p50 = quantile(SalaryInDollars, probs = .50, na.rm = TRUE),
     p90 = quantile(SalaryInDollars, probs = .90, na.rm = TRUE),
     p95 = quantile(SalaryInDollars, probs = .95, na.rm = TRUE),
