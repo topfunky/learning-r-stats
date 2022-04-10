@@ -32,7 +32,7 @@ library(tidyverse)
 library(gghighcontrast)
 
 source("nfl-scrape-over-the-cap.R")
-salaries = otc_load_and_cache_data_for_all_positions() 
+salaries = otc_load_and_cache_data_for_all_positions()
 
 salary_percentiles <- salaries %>%
   group_by(Position) %>%
@@ -45,11 +45,60 @@ salary_percentiles <- salaries %>%
     p99 = quantile(SalaryInDollars, probs = .99, na.rm = TRUE),
     stddev = sd(SalaryInDollars)
   )
+
+position_abbreviations = data.frame(
+  Position = c(
+    "quarterback",
+    "running-back",
+    "fullback",
+    "wide-receiver",
+    "tight-end",
+    "left-tackle",
+    "left-guard",
+    "center",
+    "right-guard",
+    "right-tackle",
+    "interior-defensive-line",
+    "edge-rusher",
+    "linebacker",
+    "safety",
+    "cornerback",
+    "kicker",
+    "punter",
+    "long-snapper"
+  ),
+  Position_abbr = c(
+    "QB",
+    "RB",
+    "FB",
+    "WR",
+    "TE",
+    "LT",
+    "LG",
+    "C",
+    "RG",
+    "RT",
+    "IDL",
+    "ER",
+    "LB",
+    "S",
+    "CB",
+    "K",
+    "P",
+    "LS"
+  )
+)
+
+salaries <-
+  salaries %>%
+  left_join(salary_percentiles, by = c("Position")) %>%
+  left_join(position_abbreviations, by = c("Position"))
+
 ```
 
 ## Percentiles
 
-```{r salary_percentiles, echo=FALSE}
+```{r percentiles, echo=FALSE}
 
 salary_percentiles %>%
   arrange(-stddev) %>%
@@ -63,21 +112,85 @@ salary_percentiles %>%
   ) %>%
   knitr::kable(align="r", caption="NFL Salary Percentiles by Position") %>%
   kable_styling()
+
 ```
 
 ## Plot
 
-```{r salaries, echo=FALSE}
-ggplot(data=salaries,
-       aes(x = SalaryInDollars, y = Position)) +
-  geom_boxplot() +
+Histogram
+
+```{r plot-histogram, echo=FALSE, warning=FALSE, fig.asp=1.1}
+
+ggplot(data = salaries,
+       aes(x = SalaryInDollars)) +
+  geom_histogram(fill = "#22d800") +
   theme_high_contrast(
     foreground_color = "black",
     background_color = "white",
     base_family = "InputMono"
-  ) + 
+  ) +
+  # Reference lines for percentiles
+  # 50th percentile
+  geom_vline(aes(xintercept = p50), color = "#999999") +
+  # geom_text(
+  #   aes(x = p50, y = 145, label = "50%"),
+  #   angle = 90,
+  #   hjust = 1,
+  #   vjust = 1.5,
+  #   color = "#999999",
+  #   family = "InputMono"
+  # ) +
+  # 90th percentile
+  geom_vline(aes(xintercept = p90), color = "#999999") +
+  geom_text(
+    aes(x = p90, y = 90, label = "90%"),
+    angle = 90,
+    hjust = 1,
+    vjust = 1.5,
+    color = "#999999",
+    family = "InputMono",
+    size=2.5
+  ) +
+  scale_x_continuous(labels = scales::label_number_si()) +
+  scale_y_log10() +
+  labs(title = "NFL Salary Distribution",
+       subtitle = glue("Displaying {nrow(salaries)} player salaries by position. Reference lines at 50th\nand 90th percentiles."),
+       y="number of players",
+       x="salary",
+       caption="Author: topfunky.com • Data: overthecap.com") +
+  facet_wrap( ~ Position, ncol = 3)
+
+```
+
+Dot plot
+
+```{r plot-dot, echo=FALSE, warning=FALSE}
+
+salaries_with_color <-
+  salaries %>% mutate(percentile_label = if_else(SalaryInDollars >= p90, "p90", "default"))
+
+ggplot(data = salaries_with_color,
+       aes(x = SalaryInDollars, y = Position_abbr, color = percentile_label)) +
+  
+  scale_color_manual(values = c("p90" = "#22d800", "default" = "#999999")) +
+  geom_jitter() +
+  
+  theme_high_contrast(
+    foreground_color = "black",
+    background_color = "white",
+    base_family = "InputMono"
+  ) +
+  theme(legend.position = "none") +
+  
+  scale_x_continuous(labels = scales::label_number_si()) +
   labs(
-    title="NFL Salary Distribution",
-    subtitle=glue("{nrow(salaries)} salaries by position")
+    title = "NFL Salary Distribution",
+    subtitle = glue(
+      "Displaying {nrow(salaries)} player salaries by position.\n90th percentile in green."
+    ),
+    y = "position",
+    x = "salary",
+    caption = "Author: topfunky.com • Data: overthecap.com"
   )
+
 ```
