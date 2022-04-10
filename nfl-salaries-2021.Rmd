@@ -125,7 +125,7 @@ Histogram
 
 ggplot(data = salaries,
        aes(x = SalaryInDollars)) +
-  geom_histogram(fill = "#22d800") +
+  geom_histogram(fill = "#22d800", binwidth=1000000) +
   theme_high_contrast(
     foreground_color = "black",
     background_color = "white",
