@@ -32,6 +32,7 @@ library(tidyverse)
 library(gghighcontrast)
 
 source("nfl-scrape-over-the-cap.R")
+source("gini.R")
 salaries = otc_load_and_cache_data_for_all_positions()
 
 salary_percentiles <- salaries %>%
@@ -39,9 +40,10 @@ salary_percentiles <- salaries %>%
   # Calculate percentiles
   summarize(
     n = n(),
+    gini = gini(SalaryInDollars),
     p50 = quantile(SalaryInDollars, probs = .50, na.rm = TRUE),
     p90 = quantile(SalaryInDollars, probs = .90, na.rm = TRUE),
-    p95 = quantile(SalaryInDollars, probs = .95, na.rm = TRUE),
+    # p95 = quantile(SalaryInDollars, probs = .95, na.rm = TRUE),
     p99 = quantile(SalaryInDollars, probs = .99, na.rm = TRUE),
     stddev = sd(SalaryInDollars)
   )
@@ -106,7 +108,7 @@ salary_percentiles %>%
   mutate(
     p50 = scales::dollar(p50),
     p90 = scales::dollar(p90),
-    p95 = scales::dollar(p95),
+    # p95 = scales::dollar(p95),
     p99 = scales::dollar(p99),
     stddev = scales::dollar(stddev)
   ) %>%
