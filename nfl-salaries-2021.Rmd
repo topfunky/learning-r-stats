@@ -156,7 +156,7 @@ ggplot(data = salaries,
   scale_x_continuous(labels = scales::label_number_si()) +
   scale_y_log10() +
   labs(title = "NFL Salary Distribution",
-       subtitle = glue("Displaying {nrow(salaries)} player salaries by position. Reference lines at 50th\nand 90th percentiles."),
+       subtitle = glue("Displaying {nrow(salaries)} player salaries by position.\nReference lines at 50th and 90th percentiles."),
        y="number of players",
        x="salary",
        caption="Author: topfunky.com • Data: overthecap.com") +
