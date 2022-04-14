@@ -148,8 +148,7 @@ ggplot(data = salaries,
              aes(xintercept = p90), color = "#999999") +
   geom_text(data=salary_percentiles,
     aes(x = p90, y = 90, label = "90%"),
-    angle = 90,
-    hjust = 1,
+    hjust = -0.25,
     vjust = 1.5,
     color = "#999999",
     family = "InputMono",
@@ -168,7 +167,7 @@ ggplot(data = salaries,
 
 Dot plot
 
-```{r plot-dot, echo=FALSE, warning=FALSE}
+```{r plot-dot, echo=FALSE, warning=FALSE, fig.asp=1}
 
 salaries_with_color <-
   salaries %>% mutate(percentile_label = if_else(SalaryInDollars >= p90, "p90", "default"))
@@ -177,7 +176,7 @@ ggplot(data = salaries_with_color %>% arrange(SalaryInDollars),
        aes(x = SalaryInDollars, y = Position_abbr, color = percentile_label)) +
   
   scale_color_manual(values = c("p90" = "#22d800", "default" = "#999999")) +
-  geom_jitter() +
+  geom_jitter(height=0.05) +
   
   theme_high_contrast(
     foreground_color = "black",
