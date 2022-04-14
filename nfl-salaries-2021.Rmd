@@ -133,7 +133,8 @@ ggplot(data = salaries,
   ) +
   # Reference lines for percentiles
   # 50th percentile
-  geom_vline(aes(xintercept = p50), color = "#999999") +
+  geom_vline(data=salary_percentiles,
+    aes(xintercept = p50), color = "#999999") +
   # geom_text(
   #   aes(x = p50, y = 145, label = "50%"),
   #   angle = 90,
@@ -143,8 +144,9 @@ ggplot(data = salaries,
   #   family = "InputMono"
   # ) +
   # 90th percentile
-  geom_vline(aes(xintercept = p90), color = "#999999") +
-  geom_text(
+  geom_vline(data=salary_percentiles,
+             aes(xintercept = p90), color = "#999999") +
+  geom_text(data=salary_percentiles,
     aes(x = p90, y = 90, label = "90%"),
     angle = 90,
     hjust = 1,
