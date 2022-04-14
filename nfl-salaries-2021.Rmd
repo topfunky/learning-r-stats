@@ -171,7 +171,7 @@ Dot plot
 salaries_with_color <-
   salaries %>% mutate(percentile_label = if_else(SalaryInDollars >= p90, "p90", "default"))
 
-ggplot(data = salaries_with_color,
+ggplot(data = salaries_with_color %>% arrange(SalaryInDollars),
        aes(x = SalaryInDollars, y = Position_abbr, color = percentile_label)) +
   
   scale_color_manual(values = c("p90" = "#22d800", "default" = "#999999")) +
