@@ -21,6 +21,7 @@ td:last-of-type {
 }
 </style>
 
+# Load Data
 
 ```{r setup, include=FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -33,20 +34,7 @@ library(gghighcontrast)
 
 source("nfl-scrape-over-the-cap.R")
 source("gini.R")
-salaries = otc_load_and_cache_data_for_all_positions()
 
-salary_percentiles <- salaries %>%
-  group_by(Position) %>%
-  # Calculate percentiles
-  summarize(
-    n = n(),
-    gini = gini(SalaryInDollars),
-    p50 = quantile(SalaryInDollars, probs = .50, na.rm = TRUE),
-    p90 = quantile(SalaryInDollars, probs = .90, na.rm = TRUE),
-    # p95 = quantile(SalaryInDollars, probs = .95, na.rm = TRUE),
-    p99 = quantile(SalaryInDollars, probs = .99, na.rm = TRUE),
-    stddev = sd(SalaryInDollars)
-  )
 
 position_abbreviations = data.frame(
   Position = c(
@@ -91,19 +79,56 @@ position_abbreviations = data.frame(
   )
 )
 
+salaries = otc_load_and_cache_data_for_all_positions() |>
+  filter(SalaryInDollars > 600000) |>
+  group_by(Position) |>
+  mutate(
+    percent_rank = rank(SalaryInDollars)/length(SalaryInDollars)
+  ) |>
+  ungroup()
+
+# -------------------
+salary_breaks = c(0, seq(1000000, by=4000000, to=55000000))
+# h <- hist(salaries$SalaryInDollars)
+# d <- data.frame(breaks=h$breaks[1:length(h$counts)+1], counts=h$counts)
+
+salary_histograms = salaries |>
+  group_by(Position) |>
+  summarize(
+    breaks = hist(SalaryInDollars, breaks = salary_breaks)$breaks[0:-1],
+    counts = hist(SalaryInDollars, breaks = salary_breaks)$counts
+  ) |>
+  mutate(counts = ifelse(counts == 0, NA, counts)) |>
+  ungroup() |>
+  left_join(position_abbreviations, by = c("Position"))
+# -------------------
+
+salary_percentiles <- salaries |>
+  group_by(Position) |>
+  # Calculate percentiles
+  summarize(
+    n = n(),
+    gini = gini(SalaryInDollars),
+    p50 = quantile(SalaryInDollars, probs = .50, na.rm = TRUE),
+    p90 = quantile(SalaryInDollars, probs = .90, na.rm = TRUE),
+    # p95 = quantile(SalaryInDollars, probs = .95, na.rm = TRUE),
+    p99 = quantile(SalaryInDollars, probs = .99, na.rm = TRUE),
+    stddev = sd(SalaryInDollars)
+  )
+
 salaries <-
-  salaries %>%
-  left_join(salary_percentiles, by = c("Position")) %>%
+  salaries |>
+  left_join(salary_percentiles, by = c("Position")) |>
   left_join(position_abbreviations, by = c("Position"))
 
 ```
 
-## Percentiles
+## Percentile Table
 
 ```{r percentiles, echo=FALSE}
 
-salary_percentiles %>%
-  arrange(-stddev) %>%
+salary_percentiles |>
+  arrange(-stddev) |>
   # Format
   mutate(
     p50 = scales::dollar(p50),
@@ -111,15 +136,15 @@ salary_percentiles %>%
     # p95 = scales::dollar(p95),
     p99 = scales::dollar(p99),
     stddev = scales::dollar(stddev)
-  ) %>%
-  knitr::kable(align="r", caption="NFL Salary Percentiles by Position") %>%
+  ) |>
+  knitr::kable(align="r", caption="NFL Salary Percentiles by Position") |>
   kable_styling()
 
 ```
 
 ## Plot
 
-Histogram
+### Histogram
 
 ```{r plot-histogram, echo=FALSE, warning=FALSE, fig.asp=1.1}
 
@@ -165,18 +190,71 @@ ggplot(data = salaries,
 
 ```
 
-Dot plot
+### Dot Plot by Salary and Position
 
 ```{r plot-dot, echo=FALSE, warning=FALSE, fig.asp=1}
 
 salaries_with_color <-
-  salaries %>% mutate(percentile_label = if_else(SalaryInDollars >= p90, "p90", "default"))
+  salaries |> mutate(percentile_label = case_when(SalaryInDollars <= p50 ~ "p50", 
+                                                   SalaryInDollars <= p90 ~ "default", 
+                                                   SalaryInDollars >= p90 ~ "p90", 
+                                                   TRUE ~ "none"))
 
-ggplot(data = salaries_with_color %>% arrange(SalaryInDollars),
-       aes(x = SalaryInDollars, y = Position_abbr, color = percentile_label)) +
+dot_plot = ggplot(data = salaries_with_color %>% arrange(SalaryInDollars),
+       aes(x = SalaryInDollars, y = Position_abbr, color = percent_rank)) +
+  scale_color_viridis_c(option = "A") +
+  # scale_color_manual(values = c("p90" = "#22d800", "default" = "#999999")) +
+  geom_jitter(height=0.15, size=10) +
   
-  scale_color_manual(values = c("p90" = "#22d800", "default" = "#999999")) +
-  geom_jitter(height=0.05) +
+  theme_high_contrast(
+    foreground_color = "black",
+    background_color = "white",
+    base_family = "InputMono"
+  ) +
+  # theme(legend.position = "none") +
+  
+  scale_x_continuous(labels = scales::label_number_si()) +
+  labs(
+    title = "NFL Salary Distribution",
+    subtitle = glue(
+      "Displaying {nrow(salaries)} player salaries by position.\n>90th percentile in green."
+    ),
+    y = "position",
+    x = "salary",
+    caption = "Author: topfunky.com • Data: overthecap.com"
+  )
+
+# 2d
+dot_plot
+
+# library(rayshader)
+# library(ggplot2)
+# library(tidyverse)
+# 
+# # 3d
+# plot_gg(
+#   dot_plot,
+#   multicore = TRUE,
+#   width = 5,
+#   height = 7,
+#   scale = 250
+# )
+#Change the camera angle and take a snapshot:
+# render_camera(zoom=0.5,theta=-30,phi=30)
+# render_snapshot(clear = TRUE)
+
+```
+
+### Tile Plot by Percentile and Position
+
+```{r, echo=FALSE}
+# TODO: Summarize salaries in buckets by percentile (every 5%)
+
+dot_plot = ggplot(data = salary_histograms,
+       aes(x = breaks, y = Position_abbr, color = counts, fill=counts)) +
+  # scale_color_viridis_c(option = "A") +
+  scale_fill_viridis_c("Players") +
+  geom_tile(size=1, color="black") +
   
   theme_high_contrast(
     foreground_color = "black",
@@ -187,12 +265,94 @@ ggplot(data = salaries_with_color %>% arrange(SalaryInDollars),
   
   scale_x_continuous(labels = scales::label_number_si()) +
   labs(
-    title = "NFL Salary Distribution",
+    title = "NFL Salary Percentile Grid",
     subtitle = glue(
-      "Displaying {nrow(salaries)} player salaries by position.\n90th percentile in green."
+      "Displaying {nrow(salaries)} player salaries by position.\n>Percentiles, count"
     ),
     y = "position",
     x = "salary",
+    caption = "Author: topfunky.com • Data: overthecap.com"
+  )
+
+# 2d
+dot_plot
+
+# 3d
+# library(rayshader)
+# library(ggplot2)
+# library(tidyverse)
+# plot_gg(
+#   dot_plot,
+#   multicore = TRUE,
+#   width = 5,
+#   height = 5,
+#   scale = 250
+# )
+
+# Save for 3d print
+# save_3dprint("salaries.stl", maxwidth = 140, unit = "mm")
+
+## Save 3d Image
+## Change the camera angle and take a snapshot:
+# render_camera(zoom=0.5,theta=-30,phi=30)
+# render_snapshot(clear = TRUE)
+
+```
+
+### Age
+
+```{r plot-age, echo=FALSE, warning=FALSE}
+all_n = nrow(salaries)
+all_gini = gini(salaries$SalaryInDollars)
+all_p50 = quantile(salaries$SalaryInDollars, probs = .50, na.rm = TRUE)
+all_p90 = quantile(salaries$SalaryInDollars, probs = .90, na.rm = TRUE)
+all_p99 = quantile(salaries$SalaryInDollars, probs = .99, na.rm = TRUE)
+all_stddev = sd(salaries$SalaryInDollars)
+
+salaries_by_age_with_color <-
+  salaries |>
+  mutate(
+    percentile_label = case_when(
+      SalaryInDollars <= all_p50 ~ "p50",
+      SalaryInDollars <= all_p90 ~ "default",
+      SalaryInDollars >= all_p90 ~ "p90",
+      TRUE ~ "none"
+    )
+  )
+
+ggplot(
+  data = salaries_by_age_with_color |> arrange(SalaryInDollars) |> filter(Age <= 40),
+  aes(x = Age, y = SalaryInDollars, color = percentile_label)
+) +
+
+  geom_hline(data=data.frame(), aes(yintercept = all_p90), color = "#999999") +
+  geom_text(data=data.frame(),
+    aes(x = 22, y = all_p90, label = "90%"),
+    hjust = 1.5,
+    vjust = 1.5,
+    color = "#999999",
+    family = "InputMono",
+    size = 2.5
+  ) +
+
+  scale_color_manual(values = c("p90" = "#22d800", "default" = "#999999")) +
+  geom_point() +
+  
+  theme_high_contrast(
+    foreground_color = "black",
+    background_color = "white",
+    base_family = "InputMono"
+  ) +
+  theme(legend.position = "none") +
+  
+  scale_y_continuous(labels = scales::label_number_si()) +
+  labs(
+    title = "NFL Salary Distribution by Age",
+    subtitle = glue(
+      "Displaying {nrow(salaries)} player salaries by position.\n>90th percentile in green."
+    ),
+    y = "salary",
+    x = "age",
     caption = "Author: topfunky.com • Data: overthecap.com"
   )
 
